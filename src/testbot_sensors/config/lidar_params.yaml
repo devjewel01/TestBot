@@ -1,0 +1,19 @@
+# config/lidar_params.yaml
+lidar_processor:
+  ros__parameters:
+    scan_topic: 'scan'
+    min_obstacle_distance: 0.2
+    safety_zone_radius: 0.3
+    scan_timeout: 1.0
+
+lidar_visualizer:
+  ros__parameters:
+    max_points: 100
+    min_intensity: 0.1
+    point_scale: 0.05
+
+lidar_monitor:
+  ros__parameters:
+    scan_frequency: 10.0
+    min_valid_readings: 200
+    max_scan_gap: 0.5
