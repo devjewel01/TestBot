@@ -1,38 +1,91 @@
 /testbot_driver:
   ros__parameters:
-    # Serial Communication
-    serial_port: "/dev/ttyUSB0"
-    baudrate: 115200
-    timeout: 0.1
-
-    # Motor Parameters
-    left_motor:
-      encoder_ticks_per_rev: 1440  # For N20 motor with encoder
-      pid:
-        kp: 0.1
-        ki: 0.01
-        kd: 0.05
-      max_rpm: 100
-      min_rpm: 10
-
-    right_motor:
-      encoder_ticks_per_rev: 1440
-      pid:
-        kp: 0.1
-        ki: 0.01
-        kd: 0.05
-      max_rpm: 100
-      min_rpm: 10
+    # Serial Communication Configuration
+    serial:
+      port: "/dev/ttyUSB0"
+      baudrate: 115200
+      timeout: 0.1  # seconds
+      retry_attempts: 3
+      retry_delay: 1.0  # seconds
+      heartbeat_period: 0.5  # seconds
 
     # Robot Physical Parameters
-    wheel_radius: 0.022  # meters
-    wheel_separation: 0.13  # meters
-    max_linear_speed: 0.5  # m/s
-    max_angular_speed: 2.0  # rad/s
+    robot:
+      wheel_radius: 0.022  # meters
+      wheel_separation: 0.13  # meters
+      wheel_width: 0.018  # meters
+      max_linear_speed: 0.5  # m/s
+      max_angular_speed: 2.0  # rad/s
+      min_linear_speed: 0.05  # m/s
+      min_angular_speed: 0.1  # rad/s
 
-    # Update Frequencies
-    command_timeout: 0.5  # seconds
-    publish_frequency: 50.0  # Hz
-    control_frequency: 50.0  # Hz
+    # Motion Control Parameters
+    motion:
+      acceleration_limit: 1.0  # m/s^2
+      deceleration_limit: 1.5  # m/s^2
+      angular_acceleration_limit: 3.0  # rad/s^2
+      command_timeout: 0.5  # seconds
+      control_frequency: 50.0  # Hz
+      publish_frequency: 50.0  # Hz
+      deadband: 0.01  # minimum speed difference to consider
 
-    
+    # Motor Configuration
+    motors:
+      left:
+        encoder_ticks_per_rev: 1440  # N20 motor encoder resolution
+        gear_ratio: 1.0  # if any additional gearing
+        max_rpm: 100
+        min_rpm: 10
+        invert_direction: false
+          
+      right:
+        encoder_ticks_per_rev: 1440
+        gear_ratio: 1.0
+        max_rpm: 100
+        min_rpm: 10
+        invert_direction: false
+
+    # Safety Parameters
+    safety:
+      voltage:
+        nominal: 12.0  # volts
+        min: 10.0  # minimum operating voltage
+        max: 12.6  # maximum operating voltage
+        warning: 10.5  # voltage warning threshold
+      temperature:
+        max: 60.0  # °C - maximum motor temperature
+        warning: 50.0  # °C - temperature warning threshold
+      current:
+        max: 2.0  # A - maximum continuous current
+        peak: 3.0  # A - maximum peak current
+        duration: 1.0  # seconds - maximum peak current duration
+
+    # Diagnostic Configuration
+    diagnostics:
+      publish_rate: 1.0  # Hz
+      encoder_diagnostic_rate: 1.0  # Hz
+      voltage_diagnostic_rate: 1.0  # Hz
+      temperature_diagnostic_rate: 1.0  # Hz
+      current_diagnostic_rate: 1.0  # Hz
+
+    # Odometry Configuration
+    odometry:
+      frame_id: "odom"
+      child_frame_id: "base_link"
+      publish_tf: true
+      publish_rate: 50.0  # Hz
+      covariance:
+        pose:
+          x: 0.001
+          y: 0.001
+          yaw: 0.001
+        twist:
+          linear: 0.001
+          angular: 0.001
+
+    # Debug Configuration
+    debug:
+      enable_motor_debugging: false
+      enable_encoder_debugging: false
+      enable_pid_debugging: false
+      log_level: "info"  # debug, info, warn, error
