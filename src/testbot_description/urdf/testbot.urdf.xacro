@@ -3,19 +3,19 @@
 
   <!-- Include Physical Properties -->
   <xacro:include filename="$(find testbot_description)/urdf/physical_properties.xacro"/>
-  
+ 
   <!-- Materials -->
   <material name="black">
     <color rgba="0.0 0.0 0.0 1.0"/>
   </material>
-  
+ 
   <material name="blue">
     <color rgba="0.0 0.0 0.8 1.0"/>
   </material>
-  
+ 
   <!-- Base Link -->
   <link name="base_footprint"/>
-  
+ 
   <joint name="base_joint" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
@@ -38,8 +38,8 @@
     </collision>
     <inertial>
       <mass value="${base_mass}"/>
-      <inertia ixx="${base_inertia_x}" ixy="0.0" ixz="0.0" 
-               iyy="${base_inertia_y}" iyz="0.0" 
+      <inertia ixx="${base_inertia_x}" ixy="0.0" ixz="0.0"
+               iyy="${base_inertia_y}" iyz="0.0"
                izz="${base_inertia_z}"/>
     </inertial>
   </link>
@@ -66,8 +66,8 @@
     </collision>
     <inertial>
       <mass value="${wheel_mass}"/>
-      <inertia ixx="${wheel_inertia_x}" ixy="0.0" ixz="0.0" 
-               iyy="${wheel_inertia_y}" iyz="0.0" 
+      <inertia ixx="${wheel_inertia_x}" ixy="0.0" ixz="0.0"
+               iyy="${wheel_inertia_y}" iyz="0.0"
                izz="${wheel_inertia_z}"/>
     </inertial>
   </link>
@@ -94,8 +94,8 @@
     </collision>
     <inertial>
       <mass value="${wheel_mass}"/>
-      <inertia ixx="${wheel_inertia_x}" ixy="0.0" ixz="0.0" 
-               iyy="${wheel_inertia_y}" iyz="0.0" 
+      <inertia ixx="${wheel_inertia_x}" ixy="0.0" ixz="0.0"
+               iyy="${wheel_inertia_y}" iyz="0.0"
                izz="${wheel_inertia_z}"/>
     </inertial>
   </link>
@@ -121,8 +121,8 @@
     </collision>
     <inertial>
       <mass value="${caster_mass}"/>
-      <inertia ixx="${caster_inertia}" ixy="0.0" ixz="0.0" 
-               iyy="${caster_inertia}" iyz="0.0" 
+      <inertia ixx="${caster_inertia}" ixy="0.0" ixz="0.0"
+               iyy="${caster_inertia}" iyz="0.0"
                izz="${caster_inertia}"/>
     </inertial>
   </link>

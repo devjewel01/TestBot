@@ -13,7 +13,6 @@
   <depend>launch</depend>
   <depend>launch_ros</depend>
   <depend>xacro</depend>
-  <depend>teleop_twist_keyboard</depend>
   <depend>robot_state_publisher</depend>
   <depend>joint_state_publisher</depend>
   <depend>testbot_description</depend>

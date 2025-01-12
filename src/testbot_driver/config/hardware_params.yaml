@@ -34,3 +34,5 @@
     command_timeout: 0.5  # seconds
     publish_frequency: 50.0  # Hz
     control_frequency: 50.0  # Hz
+
+    

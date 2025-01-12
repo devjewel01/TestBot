@@ -4,6 +4,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32
 from geometry_msgs.msg import TransformStamped
+from sensor_msgs.msg import JointState
 import tf2_ros
 import math
 import numpy as np
@@ -25,6 +26,8 @@ class OdometryPublisher(Node):
                 ('publish_tf', True),
                 ('odom_frame', 'odom'),
                 ('base_frame', 'base_footprint'),
+                ('wheel_left_joint', 'left_wheel_joint'),
+                ('wheel_right_joint', 'right_wheel_joint'),
                 ('pose_covariance_diagonal', [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]),
                 ('twist_covariance_diagonal', [0.001, 0.001, 0.001, 0.001, 0.001, 0.001])
             ]
@@ -37,35 +40,47 @@ class OdometryPublisher(Node):
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
-        self.last_left_ticks = 0
-        self.last_right_ticks = 0
+        self.last_left_encoder = 0.0
+        self.last_right_encoder = 0.0
         self.first_reading = True
         
         # Create TF broadcaster
         self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
         
         # Create publishers
-        self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
-        
-        # Create subscribers
-        self.left_ticks_sub = self.create_subscription(
-            Float32,
-            'left_ticks',
-            self.left_ticks_callback,
+        self.odom_pub = self.create_publisher(
+            Odometry,
+            'odom',
             10
         )
-        self.right_ticks_sub = self.create_subscription(
-            Float32,
-            'right_ticks',
-            self.right_ticks_callback,
+        self.joint_pub = self.create_publisher(
+            JointState,
+            'joint_states',
             10
         )
         
-        # Initialize variables for encoder readings
-        self.current_left_ticks = 0
-        self.current_right_ticks = 0
-        self.left_ticks_updated = False
-        self.right_ticks_updated = False
+        # Create subscribers for encoder data
+        self.left_encoder_sub = self.create_subscription(
+            Float32,
+            'wheel_encoder/left',
+            self.left_encoder_callback,
+            10
+        )
+        self.right_encoder_sub = self.create_subscription(
+            Float32,
+            'wheel_encoder/right',
+            self.right_encoder_callback,
+            10
+        )
+        
+        # Initialize encoder readings
+        self.current_left_encoder = 0.0
+        self.current_right_encoder = 0.0
+        self.left_updated = False
+        self.right_updated = False
+        
+        # Time tracking
+        self.last_time = self.get_clock().now()
         
         # Create timer for publishing
         self.create_timer(1.0/self.publish_frequency, self.timer_callback)
@@ -81,85 +96,94 @@ class OdometryPublisher(Node):
         self.publish_tf = self.get_parameter('publish_tf').value
         self.odom_frame = self.get_parameter('odom_frame').value
         self.base_frame = self.get_parameter('base_frame').value
+        self.wheel_left_joint = self.get_parameter('wheel_left_joint').value
+        self.wheel_right_joint = self.get_parameter('wheel_right_joint').value
         self.pose_covariance_diagonal = self.get_parameter('pose_covariance_diagonal').value
         self.twist_covariance_diagonal = self.get_parameter('twist_covariance_diagonal').value
         
-        # Calculate meters per tick
+        # Calculate meters per encoder tick
         self.meters_per_tick = (2 * math.pi * self.wheel_radius) / self.encoder_resolution
 
-    def left_ticks_callback(self, msg):
-        """Handle left wheel encoder ticks."""
-        self.current_left_ticks = msg.data
-        self.left_ticks_updated = True
+    def left_encoder_callback(self, msg):
+        """Handle left wheel encoder updates."""
+        self.current_left_encoder = msg.data
+        self.left_updated = True
 
-    def right_ticks_callback(self, msg):
-        """Handle right wheel encoder ticks."""
-        self.current_right_ticks = msg.data
-        self.right_ticks_updated = True
+    def right_encoder_callback(self, msg):
+        """Handle right wheel encoder updates."""
+        self.current_right_encoder = msg.data
+        self.right_updated = True
 
     def timer_callback(self):
         """Calculate and publish odometry at regular intervals."""
-        if not (self.left_ticks_updated and self.right_ticks_updated):
+        if not (self.left_updated and self.right_updated):
             return
             
         # Reset update flags
-        self.left_ticks_updated = False
-        self.right_ticks_updated = False
+        self.left_updated = False
+        self.right_updated = False
         
         # Skip first reading to establish baseline
         if self.first_reading:
-            self.last_left_ticks = self.current_left_ticks
-            self.last_right_ticks = self.current_right_ticks
+            self.last_left_encoder = self.current_left_encoder
+            self.last_right_encoder = self.current_right_encoder
             self.first_reading = False
+            self.last_time = self.get_clock().now()
             return
         
-        # Calculate wheel rotations
-        left_ticks_diff = self.current_left_ticks - self.last_left_ticks
-        right_ticks_diff = self.current_right_ticks - self.last_right_ticks
+        # Calculate time difference
+        current_time = self.get_clock().now()
+        dt = (current_time - self.last_time).nanoseconds / 1e9
+        self.last_time = current_time
         
-        # Update stored ticks
-        self.last_left_ticks = self.current_left_ticks
-        self.last_right_ticks = self.current_right_ticks
+        # Calculate encoder differences
+        left_ticks = self.current_left_encoder - self.last_left_encoder
+        right_ticks = self.current_right_encoder - self.last_right_encoder
+        
+        # Update stored encoder values
+        self.last_left_encoder = self.current_left_encoder
+        self.last_right_encoder = self.current_right_encoder
         
         # Calculate distance traveled by each wheel
-        left_distance = left_ticks_diff * self.meters_per_tick
-        right_distance = right_ticks_diff * self.meters_per_tick
+        left_distance = left_ticks * self.meters_per_tick
+        right_distance = right_ticks * self.meters_per_tick
         
-        # Calculate robot's movement
-        center_distance = (left_distance + right_distance) / 2.0
-        theta_change = (right_distance - left_distance) / self.wheel_separation
+        # Calculate robot movement
+        distance = (left_distance + right_distance) / 2.0
+        rotation = (right_distance - left_distance) / self.wheel_separation
         
-        # Update robot's pose
-        if abs(theta_change) < 1e-6:
+        # Update robot pose
+        if abs(rotation) < 1e-6:
             # Straight line movement
-            self.x += center_distance * math.cos(self.theta)
-            self.y += center_distance * math.sin(self.theta)
+            self.x += distance * math.cos(self.theta)
+            self.y += distance * math.sin(self.theta)
         else:
             # Arc movement
-            radius = center_distance / theta_change
-            self.x += radius * (math.sin(self.theta + theta_change) - math.sin(self.theta))
-            self.y -= radius * (math.cos(self.theta + theta_change) - math.cos(self.theta))
+            radius = distance / rotation
+            self.x += radius * (math.sin(self.theta + rotation) - math.sin(self.theta))
+            self.y -= radius * (math.cos(self.theta + rotation) - math.cos(self.theta))
         
-        self.theta += theta_change
-        self.theta = math.atan2(math.sin(self.theta), math.cos(self.theta))  # Normalize angle
+        self.theta = self.normalize_angle(self.theta + rotation)
         
         # Calculate velocities
-        dt = 1.0 / self.publish_frequency
-        linear_velocity = center_distance / dt
-        angular_velocity = theta_change / dt
+        linear_velocity = distance / dt if dt > 0 else 0.0
+        angular_velocity = rotation / dt if dt > 0 else 0.0
         
         # Publish transform if enabled
         if self.publish_tf:
-            self._publish_tf()
+            self._publish_tf(current_time)
         
         # Publish odometry message
-        self._publish_odom(linear_velocity, angular_velocity)
+        self._publish_odom(current_time, linear_velocity, angular_velocity)
+        
+        # Publish joint states
+        self._publish_joint_states(current_time)
 
-    def _publish_tf(self):
+    def _publish_tf(self, timestamp):
         """Publish transform from odom to base_footprint."""
         t = TransformStamped()
         
-        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.stamp = timestamp.to_msg()
         t.header.frame_id = self.odom_frame
         t.child_frame_id = self.base_frame
         
@@ -175,12 +199,12 @@ class OdometryPublisher(Node):
         
         self.tf_broadcaster.sendTransform(t)
 
-    def _publish_odom(self, linear_vel, angular_vel):
+    def _publish_odom(self, timestamp, linear_vel, angular_vel):
         """Publish odometry message."""
         odom = Odometry()
         
         # Set header
-        odom.header.stamp = self.get_clock().now().to_msg()
+        odom.header.stamp = timestamp.to_msg()
         odom.header.frame_id = self.odom_frame
         odom.child_frame_id = self.base_frame
         
@@ -205,6 +229,23 @@ class OdometryPublisher(Node):
         odom.twist.covariance = self._create_diagonal_matrix(self.twist_covariance_diagonal)
         
         self.odom_pub.publish(odom)
+
+    def _publish_joint_states(self, timestamp):
+        """Publish joint states for wheels."""
+        joint_state = JointState()
+        
+        joint_state.header.stamp = timestamp.to_msg()
+        joint_state.name = [self.wheel_left_joint, self.wheel_right_joint]
+        
+        # Calculate wheel positions from encoder ticks
+        left_pos = (self.current_left_encoder / self.encoder_resolution) * 2 * math.pi
+        right_pos = (self.current_right_encoder / self.encoder_resolution) * 2 * math.pi
+        
+        joint_state.position = [left_pos, right_pos]
+        joint_state.velocity = [0.0, 0.0]  # Could calculate velocities if needed
+        joint_state.effort = [0.0, 0.0]    # Could add motor efforts if available
+        
+        self.joint_pub.publish(joint_state)
 
     @staticmethod
     def _euler_to_quaternion(roll, pitch, yaw):
@@ -231,6 +272,15 @@ class OdometryPublisher(Node):
         for i in range(6):
             matrix[i * 7] = diagonal[i]
         return matrix
+
+    @staticmethod
+    def normalize_angle(angle):
+        """Normalize angle to [-pi, pi]."""
+        while angle > math.pi:
+            angle -= 2 * math.pi
+        while angle < -math.pi:
+            angle += 2 * math.pi
+        return angle
 
 def main(args=None):
     rclpy.init(args=args)

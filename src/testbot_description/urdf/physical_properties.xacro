@@ -16,10 +16,10 @@
     <xacro:property name="base_inertia_x" value="0.01"/>
     <xacro:property name="base_inertia_y" value="0.01"/>
     <xacro:property name="base_inertia_z" value="0.01"/>
-    
+   
     <xacro:property name="wheel_inertia_x" value="0.001"/>
     <xacro:property name="wheel_inertia_y" value="0.001"/>
     <xacro:property name="wheel_inertia_z" value="0.001"/>
-    
+   
     <xacro:property name="caster_inertia" value="0.001"/>
 </robot>

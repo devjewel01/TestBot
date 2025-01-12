@@ -36,7 +36,7 @@ def generate_launch_description():
     rviz_config = os.path.join(
         get_package_share_directory('testbot_description'),
         'rviz',
-        'view_robot.rviz'
+        'display.rviz'
     )
 
     rviz_node = Node(

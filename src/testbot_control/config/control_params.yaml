@@ -17,6 +17,8 @@
     max_angular_speed: 2.0    # rad/s
     min_linear_speed: 0.05    # m/s
     min_angular_speed: 0.1    # rad/s
+    velocity_smoothing: true
+    smoothing_factor: 0.3
     
     # Acceleration Limits
     linear_acceleration: 0.5   # m/s^2
