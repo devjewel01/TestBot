@@ -1,10 +1,8 @@
 <?xml version="1.0"?>
 <robot name="testbot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <!-- Include Physical Properties -->
   <xacro:include filename="$(find testbot_description)/urdf/physical_properties.xacro"/>
  
-  <!-- Materials -->
   <material name="black">
     <color rgba="0.0 0.0 0.0 1.0"/>
   </material>
@@ -13,7 +11,6 @@
     <color rgba="0.0 0.0 0.8 1.0"/>
   </material>
  
-  <!-- Base Link -->
   <link name="base_footprint"/>
  
   <joint name="base_joint" type="fixed">
@@ -44,7 +41,6 @@
     </inertial>
   </link>
 
-  <!-- Left Wheel -->
   <joint name="left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="left_wheel"/>
@@ -72,7 +68,6 @@
     </inertial>
   </link>
 
-  <!-- Right Wheel -->
   <joint name="right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="right_wheel"/>
@@ -100,7 +95,6 @@
     </inertial>
   </link>
 
-  <!-- Caster Wheel -->
   <joint name="caster_joint" type="fixed">
     <parent link="base_link"/>
     <child link="caster"/>

@@ -14,16 +14,12 @@ class HardwareInterface(Node):
     def __init__(self):
         super().__init__('hardware_interface')
         
-        # Initialize parameters
         self._init_parameters()
         
-        # Initialize hardware interface
         self._init_hardware()
         
-        # Initialize publishers and subscribers
         self._init_pubs_subs()
         
-        # Initialize timers
         self._init_timers()
         
         self.get_logger().info('Hardware interface initialized')

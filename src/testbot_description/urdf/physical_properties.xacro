@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
     <!-- Robot Dimensions -->
-    <xacro:property name="robot_length" value="0.18"/>  <!-- 18 cm -->
-    <xacro:property name="robot_width" value="0.12"/>   <!-- 12 cm -->
+    <xacro:property name="robot_length" value="0.18"/>      <!-- 18 cm -->
+    <xacro:property name="robot_width" value="0.12"/>       <!-- 12 cm -->
     <xacro:property name="wheel_separation" value="0.13"/>  <!-- 13 cm -->
     <xacro:property name="wheel_radius" value="0.022"/>     <!-- 44mm diameter -->
     <xacro:property name="wheel_width" value="0.018"/>      <!-- 18mm -->

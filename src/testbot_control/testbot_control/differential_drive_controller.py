@@ -6,8 +6,6 @@ import math
 import numpy as np
 
 class DifferentialDriveController(Node):
-    """Controller for differential drive robot that handles velocity commands."""
-    
     def __init__(self):
         super().__init__('differential_drive_controller')
         
@@ -17,12 +15,12 @@ class DifferentialDriveController(Node):
             parameters=[
                 ('wheel_radius', 0.022),
                 ('wheel_separation', 0.13),
-                ('max_linear_speed', 0.2),  # Reduced from 0.5
-                ('max_angular_speed', 1.0),  # Reduced from 2.0
-                ('min_linear_speed', 0.02),  # Reduced from 0.05
-                ('min_angular_speed', 0.05),  # Reduced from 0.1
-                ('linear_acceleration', 0.2),  # Reduced from 0.5
-                ('angular_acceleration', 0.4),  # Reduced from 1.0
+                ('max_linear_speed', 0.2),
+                ('max_angular_speed', 1.0),
+                ('min_linear_speed', 0.02),
+                ('min_angular_speed', 0.05),
+                ('linear_acceleration', 0.2),
+                ('angular_acceleration', 0.4),
                 ('control_frequency', 50.0),
                 ('cmd_vel_timeout', 0.5),
                 ('velocity_smoothing', True),
@@ -39,10 +37,11 @@ class DifferentialDriveController(Node):
         self.target_linear_vel = 0.0
         self.target_angular_vel = 0.0
         self.last_cmd_time = self.get_clock().now()
+        self.new_command_received = False  # Flag to track new commands
         
         # Publishers
         self.wheel_cmd_pub = self.create_publisher(
-            Twist,  # Using Twist message: linear.x = left wheel, linear.y = right wheel
+            Twist,
             'wheel_cmd',
             10
         )
@@ -78,49 +77,34 @@ class DifferentialDriveController(Node):
         self.velocity_smoothing = self.get_parameter('velocity_smoothing').value
         self.smoothing_factor = self.get_parameter('smoothing_factor').value
         
-        # Derived parameters
         self.dt = 1.0 / self.control_frequency
         self.max_wheel_speed = self.max_linear_speed / self.wheel_radius
 
     def cmd_vel_callback(self, msg: Twist):
         """Handle incoming velocity commands."""
-        # Only update velocities if we receive non-zero commands
-        # or if we're explicitly commanded to stop
-        if msg.linear.x != 0.0 or msg.angular.z != 0.0 or \
-           (self.current_linear_vel != 0.0 or self.current_angular_vel != 0.0):
-            # Update target velocities with limits
-            self.target_linear_vel = self._clamp(
-                msg.linear.x,
-                -self.max_linear_speed,
-                self.max_linear_speed
-            )
-            self.target_angular_vel = self._clamp(
-                msg.angular.z,
-                -self.max_angular_speed,
-                self.max_angular_speed
-            )
-            
-            # Update command time
-            self.last_cmd_time = self.get_clock().now()
-            
-            # Debug output
-            self.get_logger().debug(
-                f'New velocity command - linear: {self.target_linear_vel:.3f}, ' +
-                f'angular: {self.target_angular_vel:.3f}'
-            )
-
-    def control_loop(self):
-        """Main control loop for processing and sending wheel commands."""
-        current_time = self.get_clock().now()
-
-        # Check for command timeout
-        if (current_time - self.last_cmd_time).nanoseconds * 1e-9 > self.cmd_vel_timeout:
-            if self.target_linear_vel != 0.0 or self.target_angular_vel != 0.0:
-                self.target_linear_vel = 0.0
-                self.target_angular_vel = 0.0
-                self.get_logger().debug('Command timeout - stopping robot')
+        self.new_command_received = True  # Set flag for new command
         
-        # Update current velocities with acceleration limits and smoothing
+        # Update target velocities with limits
+        self.target_linear_vel = self._clamp(
+            msg.linear.x,
+            -self.max_linear_speed,
+            self.max_linear_speed
+        )
+        self.target_angular_vel = self._clamp(
+            msg.angular.z,
+            -self.max_angular_speed,
+            self.max_angular_speed
+        )
+        
+        # Update command time
+        self.last_cmd_time = self.get_clock().now()
+        
+        # Process and publish immediately for responsive control
+        self.process_and_publish_command()
+
+    def process_and_publish_command(self):
+        """Process current command and publish wheel velocities."""
+        # Update current velocities
         self.current_linear_vel = self._update_velocity(
             self.current_linear_vel,
             self.target_linear_vel,
@@ -133,35 +117,44 @@ class DifferentialDriveController(Node):
             self.angular_acceleration
         )
         
-        # Calculate wheel velocities
+        # Calculate and publish wheel velocities
         left_wheel_vel, right_wheel_vel = self._calculate_wheel_velocities(
             self.current_linear_vel,
             self.current_angular_vel
         )
         
-        # Publish wheel velocities
-        self._publish_wheel_velocities(left_wheel_vel, right_wheel_vel)
+        if self.current_linear_vel != 0.0 or self.current_angular_vel != 0.0:
+            self._publish_wheel_velocities(left_wheel_vel, right_wheel_vel)
+
+    def control_loop(self):
+        """Main control loop for monitoring command timeout."""
+        current_time = self.get_clock().now()
+
+        # Check for command timeout
+        if (current_time - self.last_cmd_time).nanoseconds * 1e-9 > self.cmd_vel_timeout:
+            if self.target_linear_vel != 0.0 or self.target_angular_vel != 0.0:
+                self.target_linear_vel = 0.0
+                self.target_angular_vel = 0.0
+                self.current_linear_vel = 0.0
+                self.current_angular_vel = 0.0
+                self._publish_wheel_velocities(0.0, 0.0)  # Publish stop command
+                self.get_logger().debug('Command timeout - stopping robot')
 
     def _update_velocity(self, current: float, target: float, max_accel: float) -> float:
         """Update velocity considering acceleration limits and smoothing."""
         if abs(target) < self.min_linear_speed and abs(target - current) < 0.001:
-            # If target is very small and we're close to it, just stop
             return 0.0
             
         if self.velocity_smoothing:
-            # Apply smoothing factor with increased responsiveness
             smoothing = self.smoothing_factor * 2.0 if target == 0 else self.smoothing_factor
             new_vel = current + smoothing * (target - current)
         else:
-            # Calculate maximum change in velocity
             max_change = max_accel * self.dt
-            
             if target > current:
                 new_vel = min(target, current + max_change)
             else:
                 new_vel = max(target, current - max_change)
             
-        # Add deadband to prevent micro-movements
         if abs(new_vel) < self.min_linear_speed:
             new_vel = 0.0
         
@@ -169,11 +162,9 @@ class DifferentialDriveController(Node):
 
     def _calculate_wheel_velocities(self, linear_vel: float, angular_vel: float) -> tuple:
         """Convert linear and angular velocities to wheel velocities."""
-        # Calculate wheel velocities using differential drive kinematics
         left_wheel_vel = (linear_vel - angular_vel * self.wheel_separation / 2.0) / self.wheel_radius
         right_wheel_vel = (linear_vel + angular_vel * self.wheel_separation / 2.0) / self.wheel_radius
         
-        # Ensure wheel velocities don't exceed maximum
         scale = abs(max(left_wheel_vel, right_wheel_vel, key=abs)) / self.max_wheel_speed
         if scale > 1.0:
             left_wheel_vel /= scale
@@ -184,12 +175,8 @@ class DifferentialDriveController(Node):
     def _publish_wheel_velocities(self, left_vel: float, right_vel: float):
         """Publish wheel velocities using Twist message."""
         wheel_cmd = Twist()
-        
-        # Using linear.x for left wheel and linear.y for right wheel
-        wheel_cmd.linear.x = float(left_vel)    # Left wheel velocity in rad/s
-        wheel_cmd.linear.y = float(right_vel)   # Right wheel velocity in rad/s
-        
-        # Zero out unused fields
+        wheel_cmd.linear.x = float(left_vel)
+        wheel_cmd.linear.y = float(right_vel)
         wheel_cmd.linear.z = 0.0
         wheel_cmd.angular.x = 0.0
         wheel_cmd.angular.y = 0.0

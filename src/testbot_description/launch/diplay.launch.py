@@ -7,14 +7,18 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # Path to the URDF file
     urdf_file = os.path.join(
         get_package_share_directory('testbot_description'),
         'urdf',
         'testbot.urdf.xacro'
     )
 
-    # Robot state publisher node
+    rviz_config = os.path.join(
+        get_package_share_directory('testbot_description'),
+        'rviz',
+        'display.rviz'
+    )
+
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -26,17 +30,9 @@ def generate_launch_description():
         }]
     )
 
-    # Joint state publisher node
     joint_state_publisher_node = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui'
-    )
-
-    # RViz
-    rviz_config = os.path.join(
-        get_package_share_directory('testbot_description'),
-        'rviz',
-        'display.rviz'
     )
 
     rviz_node = Node(

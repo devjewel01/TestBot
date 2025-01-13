@@ -24,7 +24,6 @@ class SerialProtocol:
         self.lock = threading.Lock()
         self.logger = logging.getLogger("SerialProtocol")
         
-        # Callback functions
         self.encoder_callback: Optional[Callable[[int, int], None]] = None
         self.status_callback: Optional[Callable[[str], None]] = None
         self.error_callback: Optional[Callable[[str], None]] = None
@@ -39,7 +38,6 @@ class SerialProtocol:
             )
             self.running = True
             
-            # Start reading thread
             self.read_thread = threading.Thread(target=self._read_loop)
             self.read_thread.daemon = True
             self.read_thread.start()
@@ -105,19 +103,16 @@ class SerialProtocol:
             msg_type, *data = message.split(',')
             
             if msg_type == self.MSG_ENCODER and len(data) == 2:
-                # Handle encoder data
                 left_ticks = int(data[0])
                 right_ticks = int(data[1])
                 if self.encoder_callback:
                     self.encoder_callback(left_ticks, right_ticks)
                     
             elif msg_type == self.MSG_STATUS:
-                # Handle status message
                 if self.status_callback:
                     self.status_callback(','.join(data))
                     
             elif msg_type == self.MSG_ERROR:
-                # Handle error message
                 if self.error_callback:
                     self.error_callback(','.join(data))
                     
@@ -158,7 +153,7 @@ class SerialProtocol:
                 if not self.serial_conn or not self.serial_conn.is_open:
                     return False
                     
-                command = "R\n"  # Reset command
+                command = "R\n" 
                 self.serial_conn.write(command.encode())
                 return True
                 
