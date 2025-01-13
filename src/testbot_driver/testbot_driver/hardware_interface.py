@@ -105,29 +105,26 @@ class HardwareInterface(Node):
         with self.cmd_lock:
             self.last_cmd_time = self.get_clock().now()
             
-            # Extract wheel velocities
-            left_vel = msg.linear.x
-            right_vel = msg.linear.y
+            # Extract wheel velocities from Twist message
+            left_vel = msg.linear.x   # Left wheel velocity in rad/s
+            right_vel = msg.linear.y  # Right wheel velocity in rad/s
             
-            # Convert to motor commands
-            left_cmd, right_cmd = self._convert_velocity_to_pwm(left_vel, right_vel)
-            
-            # Send commands to motors
-            self.serial_protocol.send_motor_command(left_cmd, right_cmd)
+            # Convert to motor commands and send
+            left_pwm, right_pwm = self._convert_velocity_to_pwm(left_vel, right_vel)
+            self.serial_protocol.send_motor_command(left_pwm, right_pwm)
 
     def _convert_velocity_to_pwm(self, left_vel: float, right_vel: float):
-        """Convert wheel velocities to PWM commands."""
-        # Calculate PWM values normalized to max velocity
-        left_pwm = int(abs(left_vel) * 255.0 / self.max_wheel_vel)
-        right_pwm = int(abs(right_vel) * 255.0 / self.max_wheel_vel)
+        """Convert wheel velocities (rad/s) to PWM commands (-255 to 255)."""
+        # Calculate maximum wheel velocity in rad/s
+        max_wheel_vel = (self.params['max_motor_rpm'] * 2.0 * math.pi) / 60.0
         
-        # Clamp values
-        left_pwm = min(max(left_pwm, 0), 255)
-        right_pwm = min(max(right_pwm, 0), 255)
+        # Convert to PWM values (-255 to 255)
+        left_pwm = int((left_vel / max_wheel_vel) * 255.0)
+        right_pwm = int((right_vel / max_wheel_vel) * 255.0)
         
-        # Apply direction
-        left_pwm = -left_pwm if left_vel < 0 else left_pwm
-        right_pwm = -right_pwm if right_vel < 0 else right_pwm
+        # Clamp values while preserving direction
+        left_pwm = max(min(left_pwm, 255), -255)
+        right_pwm = max(min(right_pwm, 255), -255)
         
         return left_pwm, right_pwm
 
