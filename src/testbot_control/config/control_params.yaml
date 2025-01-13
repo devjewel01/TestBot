@@ -24,28 +24,10 @@
     linear_acceleration: 0.5   # m/s^2
     angular_acceleration: 1.0  # rad/s^2
 
-    # PID Controllers
-    linear_velocity_controller:
-      kp: 1.0
-      ki: 0.0
-      kd: 0.0
-      windup_limit: 1.0
-      min_output: -1.0
-      max_output: 1.0
-
-    angular_velocity_controller:
-      kp: 1.0
-      ki: 0.0
-      kd: 0.0
-      windup_limit: 1.0
-      min_output: -1.0
-      max_output: 1.0
-
     # Odometry
     odom_frame: odom
     base_frame: base_footprint
     publish_tf: true
-    enable_odom_tf: true
     
     # Command timeout
     cmd_vel_timeout: 0.5  # seconds
@@ -53,10 +35,3 @@
     # Velocity smoothing
     velocity_smoothing: true
     smoothing_factor: 0.2  # 0.0 to 1.0, lower = smoother
-
-    # Teleoperation Settings
-    teleop:
-      linear_scaling: 1.0    # Scale factor for linear velocity commands
-      angular_scaling: 1.0   # Scale factor for angular velocity commands
-      linear_increment: 0.1  # Speed increment for key press
-      angular_increment: 0.1 # Angular increment for key press
