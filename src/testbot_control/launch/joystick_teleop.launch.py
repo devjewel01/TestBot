@@ -15,25 +15,26 @@ def generate_launch_description():
             }]
         ),
 
-        # Teleop twist converter with working PS5 mappings
+        # Teleop twist converter with PS5 mappings
         Node(
             package='teleop_twist_joy',
             executable='teleop_node',
             name='teleop_twist_joy_node',
             output='screen',
             parameters=[{
-                # Working settings for forward/backward
-                'axis_linear.x': 1,        # Left stick up/down
-                'scale_linear.x': 0.3,     # Normal speed
-                'scale_linear_turbo.x': 0.6,  # Turbo speed
+                # Forward/backward - Left stick up/down
+                'axis_linear.x': 1,
+                'scale_linear.x': 0.1,     # Normal speed
+                'scale_linear_turbo.x': 0.2,  # Turbo speed
                 
-                # Updated turning settings
-                'axis_angular.yaw': 2,     # Try different axis for turning
-                'scale_angular.yaw': 0.5,  # Normal turn speed
-                'scale_angular_turbo.yaw': 1.0,  # Turbo turn speed
+                # Left/right turning - Left stick left/right
+                'axis_angular.yaw': 0,     # Left stick horizontal
+                'scale_angular.yaw': 0.8,  # Normal turn speed
+                'scale_angular_turbo.yaw': 1.5,  # Turbo turn speed
                 
-                # Keep working turbo settings
-                'enable_turbo_button': 7,  # R2 button
+                # Turbo button configuration
+                'enable_button': 7,        # R2 button
+                'enable_turbo_button': 7,  # Same as enable_button for consistent turbo
                 'require_enable_button': False
             }],
             remappings=[
