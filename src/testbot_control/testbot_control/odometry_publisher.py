@@ -1,11 +1,10 @@
-# odometry_publisher.py
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float32
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import JointState
+from testbot_msgs.msg import EncoderStamped
 import tf2_ros
 import math
 import numpy as np
@@ -60,15 +59,15 @@ class OdometryPublisher(Node):
             10
         )
         
-        # Create subscribers for encoder data
+        # Create subscribers for encoder data using custom message type
         self.left_encoder_sub = self.create_subscription(
-            Float32,
+            EncoderStamped,
             'wheel_encoder/left',
             self.left_encoder_callback,
             10
         )
         self.right_encoder_sub = self.create_subscription(
-            Float32,
+            EncoderStamped,
             'wheel_encoder/right',
             self.right_encoder_callback,
             10
@@ -77,6 +76,10 @@ class OdometryPublisher(Node):
         # Initialize encoder readings
         self.current_left_encoder = 0.0
         self.current_right_encoder = 0.0
+        self.current_left_velocity = 0.0
+        self.current_right_velocity = 0.0
+        self.current_left_position = 0.0
+        self.current_right_position = 0.0
         self.left_updated = False
         self.right_updated = False
         
@@ -105,14 +108,18 @@ class OdometryPublisher(Node):
         # Calculate meters per encoder tick
         self.meters_per_tick = (2 * math.pi * self.wheel_radius) / self.encoder_resolution
 
-    def left_encoder_callback(self, msg):
+    def left_encoder_callback(self, msg: EncoderStamped):
         """Handle left wheel encoder updates."""
-        self.current_left_encoder = msg.data
+        self.current_left_encoder = float(msg.left_ticks)
+        self.current_left_velocity = msg.left_velocity
+        self.current_left_position = msg.left_position
         self.left_updated = True
 
-    def right_encoder_callback(self, msg):
+    def right_encoder_callback(self, msg: EncoderStamped):
         """Handle right wheel encoder updates."""
-        self.current_right_encoder = msg.data
+        self.current_right_encoder = float(msg.right_ticks)
+        self.current_right_velocity = msg.right_velocity
+        self.current_right_position = msg.right_position
         self.right_updated = True
 
     def timer_callback(self):
@@ -225,7 +232,7 @@ class OdometryPublisher(Node):
         odom.twist.twist.linear.x = linear_vel
         odom.twist.twist.angular.z = angular_vel
         
-        # Set covariances
+        # Set covariances using the configured values
         odom.pose.covariance = self._create_diagonal_matrix(self.pose_covariance_diagonal)
         odom.twist.covariance = self._create_diagonal_matrix(self.twist_covariance_diagonal)
         
@@ -238,13 +245,10 @@ class OdometryPublisher(Node):
         joint_state.header.stamp = timestamp.to_msg()
         joint_state.name = [self.wheel_left_joint, self.wheel_right_joint]
         
-        # Calculate wheel positions from encoder ticks
-        left_pos = (self.current_left_encoder / self.encoder_resolution) * 2 * math.pi
-        right_pos = (self.current_right_encoder / self.encoder_resolution) * 2 * math.pi
-        
-        joint_state.position = [left_pos, right_pos]
-        joint_state.velocity = [0.0, 0.0]  # Could calculate velocities if needed
-        joint_state.effort = [0.0, 0.0]    # Could add motor efforts if available
+        # Use the processed position and velocity from encoder messages
+        joint_state.position = [self.current_left_position, self.current_right_position]
+        joint_state.velocity = [self.current_left_velocity, self.current_right_velocity]
+        joint_state.effort = [0.0, 0.0]  # Could add motor efforts if available
         
         self.joint_pub.publish(joint_state)
 

@@ -20,7 +20,7 @@ setup(
         (os.path.join('share', package_name, 'config'),
          glob(os.path.join('config', '*.yaml'))),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'testbot_msgs'],
     zip_safe=True,
     maintainer='orbitax',
     maintainer_email='jewel.nath@orbitax.com',

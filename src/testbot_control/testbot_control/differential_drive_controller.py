@@ -1,8 +1,8 @@
-# differential_drive_controller.py
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from testbot_msgs.msg import MotorCommand, MotorFeedback
 import math
 import numpy as np
 
@@ -18,12 +18,12 @@ class DifferentialDriveController(Node):
             parameters=[
                 ('wheel_radius', 0.022),
                 ('wheel_separation', 0.13),
-                ('max_linear_speed', 0.2),  # Reduced from 0.5
-                ('max_angular_speed', 1.0),  # Reduced from 2.0
-                ('min_linear_speed', 0.02),  # Reduced from 0.05
-                ('min_angular_speed', 0.05),  # Reduced from 0.1
-                ('linear_acceleration', 0.2),  # Reduced from 0.5
-                ('angular_acceleration', 0.4),  # Reduced from 1.0
+                ('max_linear_speed', 3.0),  
+                ('max_angular_speed', 3.0), 
+                ('min_linear_speed', 0.1), 
+                ('min_angular_speed', 0.2), 
+                ('linear_acceleration', 0.2), 
+                ('angular_acceleration', 0.4), 
                 ('control_frequency', 50.0),
                 ('cmd_vel_timeout', 0.5),
                 ('velocity_smoothing', True),
@@ -42,9 +42,9 @@ class DifferentialDriveController(Node):
         self.last_cmd_time = self.get_clock().now()
         
         # Publishers
-        self.wheel_cmd_pub = self.create_publisher(
-            Twist,  # Using Twist message: linear.x = left wheel, linear.y = right wheel
-            'wheel_cmd',
+        self.motor_cmd_pub = self.create_publisher(
+            MotorCommand,
+            'motor_command',
             10
         )
         
@@ -140,8 +140,8 @@ class DifferentialDriveController(Node):
             self.current_angular_vel
         )
         
-        # Publish wheel velocities
-        self._publish_wheel_velocities(left_wheel_vel, right_wheel_vel)
+        # Publish wheel velocities using custom message
+        self._publish_motor_command(left_wheel_vel, right_wheel_vel)
 
     def _update_velocity(self, current: float, target: float, max_accel: float) -> float:
         """Update velocity considering acceleration limits and smoothing."""
@@ -182,21 +182,18 @@ class DifferentialDriveController(Node):
         
         return left_wheel_vel, right_wheel_vel
 
-    def _publish_wheel_velocities(self, left_vel: float, right_vel: float):
-        """Publish wheel velocities using Twist message."""
-        wheel_cmd = Twist()
+    def _publish_motor_command(self, left_vel: float, right_vel: float):
+        """Publish motor commands using custom MotorCommand message."""
+        motor_cmd = MotorCommand()
         
-        # Using linear.x for left wheel and linear.y for right wheel
-        wheel_cmd.linear.x = float(left_vel)    # Left wheel velocity in rad/s
-        wheel_cmd.linear.y = float(right_vel)   # Right wheel velocity in rad/s
+        # Set wheel velocities
+        motor_cmd.left_motor_vel = float(left_vel)    # Left wheel velocity in rad/s
+        motor_cmd.right_motor_vel = float(right_vel)  # Right wheel velocity in rad/s
         
-        # Zero out unused fields
-        wheel_cmd.linear.z = 0.0
-        wheel_cmd.angular.x = 0.0
-        wheel_cmd.angular.y = 0.0
-        wheel_cmd.angular.z = 0.0
+        # Set emergency stop flag (false by default)
+        motor_cmd.emergency_stop = False
         
-        self.wheel_cmd_pub.publish(wheel_cmd)
+        self.motor_cmd_pub.publish(motor_cmd)
 
     @staticmethod
     def _clamp(value: float, min_value: float, max_value: float) -> float:
