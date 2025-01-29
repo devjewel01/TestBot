@@ -25,13 +25,13 @@ def generate_launch_description():
             parameters=[{
                 # Forward/backward - Left stick up/down
                 'axis_linear.x': 1,
-                'scale_linear.x': 0.1,     # Normal speed
-                'scale_linear_turbo.x': 0.2,  # Turbo speed
+                'scale_linear.x': 0.8,     # Normal speed
+                'scale_linear_turbo.x': 1.5,  # Turbo speed  
                 
                 # Left/right turning - Left stick left/right
                 'axis_angular.yaw': 0,     # Left stick horizontal
-                'scale_angular.yaw': 0.8,  # Normal turn speed
-                'scale_angular_turbo.yaw': 1.5,  # Turbo turn speed
+                'scale_angular.yaw': 1.5,  # Normal turn speed
+                'scale_angular_turbo.yaw': 2.5,  # Turbo turn speed
                 
                 # Turbo button configuration
                 'enable_button': 7,        # R2 button

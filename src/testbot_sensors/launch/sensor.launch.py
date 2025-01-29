@@ -1,55 +1,42 @@
 #!/usr/bin/env python3
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
+import os
 
 def generate_launch_description():
+    # Get package share directory
+    pkg_dir = get_package_share_directory('testbot_sensors')
+    
+    # Load config files
+    rplidar_config = os.path.join(pkg_dir, 'config', 'rplidar_params.yaml')
+    filter_config = os.path.join(pkg_dir, 'config', 'laser_filter_params.yaml')
+
+    # RPLidar node
+    rplidar_node = Node(
+        package='rplidar_ros',
+        executable='rplidar_composition',
+        name='rplidar_node',
+        parameters=[rplidar_config],
+        remappings=[('scan', 'scan_raw')],
+        output='screen'
+    )
+
+    # Laser filter node
+    filter_node = Node(
+        package='laser_filters',
+        executable='scan_to_scan_filter_chain',
+        name='laser_filter',
+        parameters=[filter_config],
+        remappings=[
+            ('scan', 'scan_raw'),
+            ('scan_filtered', 'scan')
+        ],
+        output='screen'
+    )
+
+    # Create and return launch description
     return LaunchDescription([
-        # RPLidar node
-        Node(
-            package='rplidar_ros',
-            executable='rplidar_node',
-            name='rplidar_node',
-            parameters=[{
-                'serial_port': '/dev/ttyUSB1',
-                'serial_baudrate': 115200,
-                'frame_id': 'laser',
-                'angle_compensate': True,
-                'scan_mode': 'Standard',
-                'scan_frequency': 10.0
-            }],
-            output='screen'
-        ),
-
-        # Lidar processor node
-        Node(
-            package='testbot_sensors',
-            executable='lidar_processor',
-            name='lidar_processor',
-            parameters=[{
-                'scan_topic': 'scan',
-                'min_obstacle_distance': 0.2,
-                'safety_zone_radius': 0.3
-            }],
-            output='screen'
-        ),
-
-        # Lidar visualizer node
-        Node(
-            package='testbot_sensors',
-            executable='lidar_visualizer',
-            name='lidar_visualizer',
-            parameters=[{
-                'max_points': 100,
-                'point_scale': 0.05
-            }],
-            output='screen'
-        ),
-
-        # Lidar monitor node
-        Node(
-            package='testbot_sensors',
-            executable='lidar_monitor',
-            name='lidar_monitor',
-            output='screen'
-        )
+        rplidar_node,
+        filter_node
     ])

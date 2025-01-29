@@ -13,9 +13,12 @@ class HardwareInterface(Node):
     def __init__(self):
         super().__init__('hardware_interface')
         
+        # Initialize publishers first
+        self._init_pubs_subs()
+        
+        # Then initialize parameters and hardware
         self._init_parameters()
         self._init_hardware()
-        self._init_pubs_subs()
         self._init_timers()
         
         self.get_logger().info('Hardware interface initialized')
@@ -32,7 +35,7 @@ class HardwareInterface(Node):
                 ('wheel_radius', 0.022),
                 ('max_motor_rpm', 500.0),
                 ('command_timeout', 0.5),
-                ('encoder_resolution', 1440)  # Added encoder resolution parameter
+                ('encoder_resolution', 1440)
             ]
         )
         
@@ -50,32 +53,6 @@ class HardwareInterface(Node):
         # Calculate derived parameters
         self.max_wheel_vel = (self.params['max_motor_rpm'] * 2.0 * math.pi) / 60.0
         self.radians_per_tick = (2.0 * math.pi) / self.params['encoder_resolution']
-
-    def _init_hardware(self):
-        """Initialize hardware communication."""
-        # Initialize serial connection with thread lock
-        self.cmd_lock = threading.Lock()
-        self.serial_protocol = SerialProtocol(
-            port=self.params['serial_port'],
-            baudrate=self.params['baudrate'],
-            timeout=self.params['timeout']
-        )
-        
-        if not self.serial_protocol.connect():
-            self.get_logger().error('Failed to connect to serial port')
-            raise RuntimeError('Failed to connect to motor controller')
-
-        # Register callbacks
-        self.serial_protocol.register_encoder_callback(self._encoder_callback)
-        self.serial_protocol.register_error_callback(self._error_callback)
-        self.serial_protocol.register_status_callback(self._status_callback)
-
-        # Initialize command timing and motor state
-        self.last_cmd_time = self.get_clock().now()
-        self.last_encoder_time = self.get_clock().now()
-        self.last_left_ticks = 0
-        self.last_right_ticks = 0
-        self.motor_status = MotorStatus.MOTOR_OK
 
     def _init_pubs_subs(self):
         """Initialize publishers and subscribers."""
@@ -108,6 +85,32 @@ class HardwareInterface(Node):
             self._motor_cmd_callback,
             10
         )
+
+    def _init_hardware(self):
+        """Initialize hardware communication."""
+        # Initialize command timing and motor state
+        self.last_cmd_time = self.get_clock().now()
+        self.last_encoder_time = self.get_clock().now()
+        self.last_left_ticks = 0
+        self.last_right_ticks = 0
+        self.motor_status = MotorStatus.MOTOR_OK
+
+        # Initialize serial connection with thread lock
+        self.cmd_lock = threading.Lock()
+        self.serial_protocol = SerialProtocol(
+            port=self.params['serial_port'],
+            baudrate=self.params['baudrate'],
+            timeout=self.params['timeout']
+        )
+        
+        if not self.serial_protocol.connect():
+            self.get_logger().error('Failed to connect to serial port')
+            raise RuntimeError('Failed to connect to motor controller')
+
+        # Register callbacks after all initialization is complete
+        self.serial_protocol.register_encoder_callback(self._encoder_callback)
+        self.serial_protocol.register_error_callback(self._error_callback)
+        self.serial_protocol.register_status_callback(self._status_callback)
 
     def _init_timers(self):
         """Initialize timers."""
@@ -150,53 +153,57 @@ class HardwareInterface(Node):
 
     def _encoder_callback(self, left_ticks: int, right_ticks: int):
         """Handle encoder feedback and publish comprehensive encoder data."""
-        current_time = self.get_clock().now()
-        dt = (current_time - self.last_encoder_time).nanoseconds / 1e9
-        
-        # Calculate velocities (rad/s)
-        if dt > 0:
-            left_diff_ticks = left_ticks - self.last_left_ticks
-            right_diff_ticks = right_ticks - self.last_right_ticks
+        try:
+            current_time = self.get_clock().now()
+            dt = (current_time - self.last_encoder_time).nanoseconds / 1e9
             
-            left_velocity = (left_diff_ticks * self.radians_per_tick) / dt
-            right_velocity = (right_diff_ticks * self.radians_per_tick) / dt
-        else:
-            left_velocity = 0.0
-            right_velocity = 0.0
+            # Calculate velocities (rad/s)
+            if dt > 0:
+                left_diff_ticks = left_ticks - self.last_left_ticks
+                right_diff_ticks = right_ticks - self.last_right_ticks
+                
+                left_velocity = (left_diff_ticks * self.radians_per_tick) / dt
+                right_velocity = (right_diff_ticks * self.radians_per_tick) / dt
+            else:
+                left_velocity = 0.0
+                right_velocity = 0.0
 
-        # Calculate positions (radians)
-        left_position = left_ticks * self.radians_per_tick
-        right_position = right_ticks * self.radians_per_tick
-        
-        # Create and publish left encoder message
-        left_msg = EncoderStamped()
-        left_msg.header.stamp = current_time.to_msg()
-        left_msg.left_ticks = left_ticks
-        left_msg.left_velocity = left_velocity
-        left_msg.left_position = left_position
-        self.left_encoder_pub.publish(left_msg)
-        
-        # Create and publish right encoder message
-        right_msg = EncoderStamped()
-        right_msg.header.stamp = current_time.to_msg()
-        right_msg.right_ticks = right_ticks
-        right_msg.right_velocity = right_velocity
-        right_msg.right_position = right_position
-        self.right_encoder_pub.publish(right_msg)
-        
-        # Create and publish motor feedback
-        feedback_msg = MotorFeedback()
-        feedback_msg.header.stamp = current_time.to_msg()
-        feedback_msg.left_motor_vel = left_velocity
-        feedback_msg.right_motor_vel = right_velocity
-        feedback_msg.left_duty = 0.0  # Could calculate from PWM if available
-        feedback_msg.right_duty = 0.0  # Could calculate from PWM if available
-        self.motor_feedback_pub.publish(feedback_msg)
-        
-        # Update stored values
-        self.last_left_ticks = left_ticks
-        self.last_right_ticks = right_ticks
-        self.last_encoder_time = current_time
+            # Calculate positions (radians)
+            left_position = left_ticks * self.radians_per_tick
+            right_position = right_ticks * self.radians_per_tick
+            
+            # Create and publish left encoder message
+            left_msg = EncoderStamped()
+            left_msg.header.stamp = current_time.to_msg()
+            left_msg.left_ticks = left_ticks
+            left_msg.left_velocity = left_velocity
+            left_msg.left_position = left_position
+            self.left_encoder_pub.publish(left_msg)
+            
+            # Create and publish right encoder message
+            right_msg = EncoderStamped()
+            right_msg.header.stamp = current_time.to_msg()
+            right_msg.right_ticks = right_ticks
+            right_msg.right_velocity = right_velocity
+            right_msg.right_position = right_position
+            self.right_encoder_pub.publish(right_msg)
+            
+            # Create and publish motor feedback
+            feedback_msg = MotorFeedback()
+            feedback_msg.header.stamp = current_time.to_msg()
+            feedback_msg.left_motor_vel = left_velocity
+            feedback_msg.right_motor_vel = right_velocity
+            feedback_msg.left_duty = 0.0  # Could calculate from PWM if available
+            feedback_msg.right_duty = 0.0  # Could calculate from PWM if available
+            self.motor_feedback_pub.publish(feedback_msg)
+            
+            # Update stored values
+            self.last_left_ticks = left_ticks
+            self.last_right_ticks = right_ticks
+            self.last_encoder_time = current_time
+            
+        except Exception as e:
+            self.get_logger().error(f'Error in encoder callback: {str(e)}')
 
     def _error_callback(self, error_msg: str):
         """Handle error messages and update motor status."""
@@ -206,7 +213,6 @@ class HardwareInterface(Node):
 
     def _status_callback(self, status_msg: str):
         """Handle status messages."""
-        self.get_logger().info(f"Hardware status: {status_msg}")
         self._publish_motor_status(status_msg)
 
     def _status_publisher_callback(self):
